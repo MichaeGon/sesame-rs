@@ -211,21 +211,21 @@ impl Sesame {
 
     /// lock this sesame
     pub fn lock(&mut self) -> Result<(), String> {
-        self.control("lock".to_string())
+        self.control(ControlType::Lock)
     }
 
     /// unlock this sesame
     pub fn unlock(&mut self) -> Result<(), String> {
-        self.control("unlock".to_string())
+        self.control(ControlType::Unlock)
     }
 
-    fn control(&mut self, ctype: String) ->Result<(), String> {
+    fn control(&mut self, ctype: ControlType) -> Result<(), String> {
         let atoken = {
             let client = self.client.read().unwrap();
             client.auth_token.clone()
         };
 
-        let flag = ctype == "unlock";
+        let flag = ctype != ControlType::Unlock;
 
         if self.is_unlocked == flag {
             if let Some(token) = atoken {

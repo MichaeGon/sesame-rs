@@ -1,3 +1,4 @@
+use std::fmt;
 use std::error::Error;
 use std::str::from_utf8;
 use futures::{Stream};
@@ -37,5 +38,21 @@ impl InnerClient {
         self.core.run(resp).or_else(|err| {
             Err(err.description().to_string())
         })
+    }
+}
+
+/// Control Type
+#[derive(Eq, PartialEq)]
+pub enum ControlType {
+    Lock,
+    Unlock,
+}
+
+impl fmt::Display for ControlType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &ControlType::Lock => write!(f, "lock"),
+            &ControlType::Unlock => write!(f, "unlock")
+        }
     }
 }

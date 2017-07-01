@@ -1,4 +1,5 @@
 # sesame-rs
+
 Rust Client for [Sesame](https://candyhouse.co) made by CANDY HOUSE, Inc.
 
 ## Usage
@@ -16,7 +17,7 @@ fn main() {
 
     // initialize client
     let sesame = sesame_rs::SesameClient::new();
-    // login 
+    // login
     sesame.login(email, pass).ok();
 
     for mut s in sesame.list_sesames().unwrap() {
