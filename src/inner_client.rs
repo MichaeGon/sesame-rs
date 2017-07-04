@@ -42,7 +42,7 @@ impl InnerClient {
 }
 
 /// Control Type
-#[derive(Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ControlType {
     Lock,
     Unlock,

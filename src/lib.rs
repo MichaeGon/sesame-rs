@@ -32,10 +32,12 @@ const LOGIN_ENDPOINT: &'static str  = "/accounts/login";
 const SESAME_ENDPOINT: &'static str = "/sesames";
 const CONTROL_ENDPOINT: &'static str = "/control";
 
+
+/// X-Authorization header
 header! { (XAuth, "X-Authorization") => [String] }
 
 
-/// Sesame client wrapper
+/// Sesame client
 pub struct SesameClient {
     body: Arc<RwLock<InnerClient>>,
 }
@@ -187,14 +189,16 @@ impl SesameClient {
 }
 
 impl Sesame {
-    /// getters
+    /// get device_id
     pub fn get_device_id(&self) -> String {
         self.device_id.clone()
     }
 
+    /// get nickname
     pub fn get_nickname(&self) -> String {
         self.nickname.clone()
     }
+
 
     pub fn is_unlocked(&self) -> bool {
         self.is_unlocked
