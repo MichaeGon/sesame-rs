@@ -3,7 +3,7 @@
 Rust Client for [Sesame](https://candyhouse.co) made by CANDY HOUSE, Inc.
 
 ## Installation
-Add sesame_rs to your Cargo.toml
+Add this to your `Cargo.toml`
 ```toml
 [dependencies]
 sesame_rs = "*"
