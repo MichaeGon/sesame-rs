@@ -3,10 +3,10 @@ name = "sesame_rs"
 version = "0.1.2"
 authors = ["MichaeGon <lo.dnix@gmail.com>"]
 repository = "https://github.com/MichaeGon/sesame-rs"
-keywords = ["sesame", "api-client"]
-license-file = "LICENSE"
+keywords = ["sesame", "API bindings"]
+license-file = "MIT"
 readme = "README.md"
-description = "Sesame API Client in Rust"
+description = "API Client for Sesame by CANDY HOUSE, Inc."
 
 [dependencies]
 hyper = "0.11"

@@ -1,20 +1,21 @@
-use std::fmt;
 use std::error::Error;
 use std::str::from_utf8;
-use futures::{Stream};
-use hyper::{Client, Request, StatusCode, Response};
-use hyper::client::{HttpConnector};
+use futures::Stream;
+use hyper::{Client, Request, Response, StatusCode};
+use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
 
-/// Sesame Client body
-pub struct InnerClient {
+use super::SesameClient;
+
+/// Sesame client body
+pub struct ClientBody {
     pub auth_token: Option<String>,
     pub client: Client<HttpsConnector<HttpConnector>>,
     pub core: Core,
 }
 
-impl InnerClient {
+impl ClientBody {
     pub fn parse_result(&mut self, res: Response) -> (StatusCode, String) {
         let status = res.status();
         let bstr = self.core.run(res.body().concat2()).unwrap();
@@ -41,18 +42,22 @@ impl InnerClient {
     }
 }
 
-/// Control Type
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum ControlType {
-    Lock,
-    Unlock,
-}
+impl SesameClient {
+    pub fn parse_result(&self, res: Response) -> (StatusCode, String) {
+        let mut client = self.body.write().unwrap();
 
-impl fmt::Display for ControlType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &ControlType::Lock => write!(f, "lock"),
-            &ControlType::Unlock => write!(f, "unlock")
-        }
+        client.parse_result(res)
+    }
+
+    pub fn get_token_with_check(&self) -> Result<String, String> {
+        let client = self.body.read().unwrap();
+
+        client.get_token_with_check()
+    }
+
+    pub fn request(&self, request: Request) -> Result<Response, String> {
+        let mut client = self.body.write().unwrap();
+
+        client.request(request)
     }
 }

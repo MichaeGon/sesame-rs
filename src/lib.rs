@@ -1,50 +1,38 @@
-/// root module
-/// sesame client and sesame devices
-///
-
-mod serialized;
-mod inner_client;
-
+extern crate futures;
 #[macro_use]
 extern crate hyper;
-extern crate futures;
 extern crate hyper_tls;
-extern crate tokio_core;
 extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate tokio_core;
 
-use std::sync::{Arc, RwLock};
+mod client;
+mod serialized;
+mod sesame;
+mod utility;
+
 use std::error::Error;
-use std::str::from_utf8;
-use futures::{Stream};
-use hyper::{Client, Request, Method, StatusCode, Response};
-use hyper::header::{ContentType};
+use std::sync::{Arc, RwLock};
+use hyper::{Client, Method, Request, StatusCode};
+use hyper::header::ContentType;
 use hyper_tls::HttpsConnector;
 use tokio_core::reactor::Core;
 
+use client::*;
 use serialized::*;
-use inner_client::*;
+use sesame::*;
+use utility::*;
 
-const URI: &'static str = "https://api.candyhouse.co/v1";
-const LOGIN_ENDPOINT: &'static str  = "/accounts/login";
-const SESAME_ENDPOINT: &'static str = "/sesames";
-const CONTROL_ENDPOINT: &'static str = "/control";
-
-
-/// X-Authorization header
-header! { (XAuth, "X-Authorization") => [String] }
-
-
-/// Sesame client
+/// Sesame Client
 pub struct SesameClient {
-    body: Arc<RwLock<InnerClient>>,
+    body: Arc<RwLock<ClientBody>>,
 }
 
 /// Sesame device
 pub struct Sesame {
-    client: Arc<RwLock<InnerClient>>,
+    client: Arc<RwLock<ClientBody>>,
     device_id: String,
     nickname: String,
     is_unlocked: bool,
@@ -63,11 +51,12 @@ impl SesameClient {
 
         SesameClient {
             body: Arc::new(RwLock::new(
-                InnerClient {
+                ClientBody {
                     auth_token: None,
                     client: client,
                     core: core,
-            }))
+                }
+            ))
         }
     }
 
@@ -75,7 +64,7 @@ impl SesameClient {
     pub fn login(&self, email: String, password: String) -> Result<(), String> {
         let json = format!(r#"{{"email":"{}", "password":"{}"}}"#, email, password);
 
-        let uri = format!("{}{}", URI, LOGIN_ENDPOINT).parse().unwrap();
+        let uri = format!("{}{}", PREFIX, LOGIN_ENDPOINT).parse().unwrap();
 
         let mut request = Request::new(Method::Post, uri);
         request.headers_mut().set(ContentType::json());
@@ -106,7 +95,7 @@ impl SesameClient {
     pub fn get_sesame(&self, device_id: String) -> Result<Sesame, String> {
 
         self.get_token_with_check().and_then(|token| {
-            let uri = format!("{}{}/{}", URI, SESAME_ENDPOINT, device_id).parse().unwrap();
+            let uri = format!("{}{}/{}", PREFIX, SESAME_ENDPOINT, device_id).parse().unwrap();
 
             let mut request = Request::new(Method::Get, uri);
             request.headers_mut().set(XAuth(token.to_owned()));
@@ -137,7 +126,7 @@ impl SesameClient {
     /// get sesame devices
     pub fn list_sesames(&self) -> Result<Vec<Sesame>, String> {
         self.get_token_with_check().and_then(|token| {
-            let uri = format!("{}{}", URI, SESAME_ENDPOINT).parse().unwrap();
+            let uri = format!("{}{}", PREFIX, SESAME_ENDPOINT).parse().unwrap();
 
             let mut request = Request::new(Method::Get, uri);
             request.headers_mut().set(XAuth(token.to_owned()));
@@ -166,36 +155,16 @@ impl SesameClient {
             })
         })
     }
-
-
-
-    fn parse_result(&self, res: Response) -> (StatusCode, String) {
-        let mut client = self.body.write().unwrap();
-
-        client.parse_result(res)
-    }
-
-    fn get_token_with_check(&self) -> Result<String, String> {
-        let client = self.body.read().unwrap();
-
-        client.get_token_with_check()
-    }
-
-    fn request(&self, request: Request) -> Result<Response, String> {
-        let mut client = self.body.write().unwrap();
-
-        client.request(request)
-    }
 }
 
 impl Sesame {
     /// get device_id
-    pub fn get_device_id(&self) -> String {
+    pub fn device_id(&self) -> String {
         self.device_id.clone()
     }
 
     /// get nickname
-    pub fn get_nickname(&self) -> String {
+    pub fn nickname(&self) -> String {
         self.nickname.clone()
     }
 
@@ -208,7 +177,7 @@ impl Sesame {
         self.api_enabled
     }
 
-    pub fn get_battery(&self) -> u64 {
+    pub fn battery(&self) -> u64 {
         self.battery
     }
 
@@ -221,65 +190,5 @@ impl Sesame {
     /// unlock this sesame
     pub fn unlock(&mut self) -> Result<(), String> {
         self.control(ControlType::Unlock)
-    }
-
-    fn control(&mut self, ctype: ControlType) -> Result<(), String> {
-        let atoken = {
-            let client = self.client.read().unwrap();
-            client.auth_token.clone()
-        };
-
-        let flag = ctype != ControlType::Unlock;
-
-        if self.is_unlocked == flag {
-            if let Some(token) = atoken {
-                let mut client = self.client.write().unwrap();
-
-                let json = format!(r#"{{"type":"{}"}}"#, ctype);
-
-                let uri = format!("{}{}/{}{}", URI, SESAME_ENDPOINT, self.device_id, CONTROL_ENDPOINT).parse().unwrap();
-
-                let mut request = Request::new(Method::Post, uri);
-                request.headers_mut().set(XAuth(token));
-                request.headers_mut().set(ContentType::json());
-                request.set_body(json);
-
-                let res = client.request(request).and_then(|res| {
-                    let status = res.status();
-
-                    if status == StatusCode::NoContent {
-                        Ok(())
-                    }
-                    else {
-                        let bstr = client.core.run(res.body().concat2()).unwrap();
-                        let data = from_utf8(&bstr).unwrap();
-
-                        let msg: Message = serde_json::from_str(data).unwrap();
-                        Err(msg.message)
-                    }
-                });
-
-                if res.is_ok() {
-                    self.is_unlocked = !flag;
-                }
-
-                res
-            }
-            else {
-                Err("Not logged in".to_string())
-            }
-
-        }
-        else {
-            Err(format!("Sesame{{id: {}, nickname: {}}}: already {}ed", self.device_id, self.nickname, ctype))
-        }
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
     }
 }

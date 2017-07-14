@@ -2,36 +2,34 @@
 
 Rust Client for [Sesame](https://candyhouse.co) made by CANDY HOUSE, Inc.
 
+## Installation
+Add sesame_rs to your Cargo.toml
+```toml
+[dependencies]
+sesame_rs = "*"
+```
 
 ## Usage
 ```rust
 extern crate sesame_rs;
-extern crate rpassword;
 
 use sesame_rs::*;
-use rpassword::read_password;
 
 fn main() {
-    println!("email:");
-    let email = get_line();
-    println!("password:");
-    let pass = read_password().unwrap();
 
-    // initialize client
-    let sesame = SesameClient::new();
-    // login
-    sesame.login(email, pass).ok();
+    // Initialize client
+    let client = SesameClient::new();
 
-    for mut s in sesame.list_sesames().unwrap() {
-        // lock sesame
-        s.lock().ok();
+    // Login to your account
+    client.login(email, password).ok();
+
+    for mut sesame in client.list_sesames().unwrap() {
+        // Lock your sesame
+        sesame.lock().ok();
+
+        // Unlock your sesame
+        sesame.unlock().ok();
     }
-}
-
-fn get_line() -> String {
-    let mut s = String::new();
-    std::io::stdin().read_line(&mut s).ok();
-    s.trim().to_string()
 }
 
 ```
