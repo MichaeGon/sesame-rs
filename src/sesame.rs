@@ -1,17 +1,28 @@
 use std::fmt;
 use std::str::from_utf8;
+use std::sync::{Arc, RwLock};
 use futures::Stream;
 use hyper::{Method, Request, StatusCode};
 use hyper::header::ContentType;
 use serde_json;
 
-use super::Sesame;
+use client::*;
 use serialized::*;
 use utility::*;
 
+/// Sesame device
+pub struct Sesame {
+    client: Arc<RwLock<ClientBody>>,
+    device_id: String,
+    nickname: String,
+    is_unlocked: bool,
+    api_enabled: bool,
+    battery: u64,
+}
+
 /// Control Type
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum ControlType {
+enum ControlType {
     Lock,
     Unlock,
 }
@@ -25,8 +36,53 @@ impl fmt::Display for ControlType {
     }
 }
 
+pub fn make_sesame(client: Arc<RwLock<ClientBody>>, device_id: String, nickname: String, is_unlocked: bool, api_enabled: bool, battery: u64) -> Sesame {
+    Sesame {
+        client: client,
+        device_id: device_id,
+        nickname: nickname,
+        is_unlocked: is_unlocked,
+        api_enabled: api_enabled,
+        battery: battery,
+    }
+}
+
 impl Sesame {
-    pub fn control(&mut self, ctype: ControlType) -> Result<(), String> {
+    /// get device_id
+    pub fn device_id(&self) -> String {
+        self.device_id.clone()
+    }
+
+    /// get nickname
+    pub fn nickname(&self) -> String {
+        self.nickname.clone()
+    }
+
+
+    pub fn is_unlocked(&self) -> bool {
+        self.is_unlocked
+    }
+
+    pub fn api_enabled(&self) -> bool {
+        self.api_enabled
+    }
+
+    pub fn battery(&self) -> u64 {
+        self.battery
+    }
+
+
+    /// lock this sesame
+    pub fn lock(&mut self) -> Result<(), String> {
+        self.control(ControlType::Lock)
+    }
+
+    /// unlock this sesame
+    pub fn unlock(&mut self) -> Result<(), String> {
+        self.control(ControlType::Unlock)
+    }
+
+    fn control(&mut self, ctype: ControlType) -> Result<(), String> {
         let atoken = {
             let client = self.client.read().unwrap();
             client.auth_token.clone()
