@@ -180,11 +180,7 @@ impl ClientBody {
     }
 
     fn get_token_with_check(&self) -> Result<String, String> {
-        if let Some(token) = self.auth_token.clone() {
-            Ok(token)
-        }
-        else {
-            Err("Not logged in".to_string())
-        }
+        self.auth_token.clone()
+            .ok_or("Not logged in.".to_string())
     }
 }
